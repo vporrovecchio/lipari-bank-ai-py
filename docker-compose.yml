@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  postgres:
+    image: pgvector/pgvector:pg16  # PostgreSQL 16 + pgvector preinstallato
+    environment:
+      POSTGRES_USER: lipari
+      POSTGRES_PASSWORD: lipari
+      POSTGRES_DB: lipari_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - lipari-ai-data:/var/lib/postgresql/data
+
+volumes:
+  lipari-ai-data:
