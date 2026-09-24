@@ -11,3 +11,6 @@ wheels/
 
 .env
 uv.lock
+
+opencode-config
+workspace

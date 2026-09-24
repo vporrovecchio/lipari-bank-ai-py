@@ -1,19 +1,19 @@
 from datetime import UTC, datetime
-from fastapi import FastAPI, Request
+
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.config import settings
-from src.exceptions import AppError
-from src.api import chat, categorize
-
+from lipari_bank_ai.api import categorize, chat
+from lipari_bank_ai.config import settings
+from lipari_bank_ai.exceptions import AppError
 
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     description="Bootcamp Python AI Powered v1",
 )
-
 
 @app.exception_handler(AppError)
 async def app_exception_handler(req: Request, exc: AppError) -> JSONResponse:
@@ -57,7 +57,6 @@ async def general_exception_handler(req: Request, exc: Exception) -> JSONRespons
             "path": req.url.path,
         },
     )
-
 
 @app.get("/health")
 async def health() -> dict[str, str]:

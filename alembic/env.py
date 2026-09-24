@@ -6,10 +6,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
-from src.config import settings
-from src.db.session import Base
-from src.db import models  # import all models so Base.metadata is populated
+from lipari_bank_ai.config import settings
+from lipari_bank_ai.db.session import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
