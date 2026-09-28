@@ -1,6 +1,9 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lipari_bank_ai.auth.deps import UserContext, get_current_user
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.db.session import get_db
 from lipari_bank_ai.llm.embedding_client import EmbeddingClient
@@ -14,16 +17,20 @@ router = APIRouter(prefix="/api/ai", tags=["Advice"])
 
 
 @router.post("/advice", response_model=AdviceResponse)
-async def advice(req: AdviceRequest, db: AsyncSession = Depends(get_db)) -> AdviceResponse:
+async def advice(
+    req: AdviceRequest,
+    user: Annotated[UserContext, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+) -> AdviceResponse:
     embedding_client = EmbeddingClient()
     retrieval = RetrievalService(db, embedding_client)
     rag = RAGService(retrieval, get_llm_provider())
-    return await rag.answer(req)
+    return await rag.advice(req.question, user)
 
 
 @router.post("/documents/ingest", response_model=IngestResponse)
 async def ingest(req: IngestRequest, db: AsyncSession = Depends(get_db)) -> IngestResponse:
     embedding_client = EmbeddingClient()
     service = IngestService(db, embedding_client)
-    count = await service.ingest_document(req.document_id, req.content, req.metadata)
+    count = await service.ingest_document(req.document_id, req.content, req.metadata, req.visibility)
     return IngestResponse(chunk_count=count, embedding_dim=settings.embedding_dim)

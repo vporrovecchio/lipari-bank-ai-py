@@ -2,10 +2,9 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from lipari_bank_ai.api import categorize, chat, advice
+from lipari_bank_ai.api import auth, categorize, chat, advice
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.exceptions import AppError
 
@@ -66,3 +65,4 @@ async def health() -> dict[str, str]:
 app.include_router(chat.router)
 app.include_router(categorize.router)
 app.include_router(advice.router)
+app.include_router(auth.router)

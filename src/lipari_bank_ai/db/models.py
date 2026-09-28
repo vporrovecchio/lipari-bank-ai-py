@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lipari_bank_ai.config import settings
@@ -49,6 +49,14 @@ class ChatMessage(Base):
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
+    __table_args__ = (
+        Index(
+            "ix_document_chunks_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     document_id: Mapped[str] = mapped_column(String, index=True)
@@ -56,3 +64,14 @@ class DocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dim))
     chunk_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    visibility: Mapped[str] = mapped_column(String(32), default="public", index=True)
+
+class AppUser(Base):
+    __tablename__ = "app_users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    full_name: Mapped[str] = mapped_column(String(128))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), default="operator")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

@@ -6,18 +6,20 @@ import httpx
 
 async def main() -> None:
     docs_dir = Path("data/docs")
-    paths = await asyncio.to_thread(lambda: sorted(docs_dir.glob("*.md")))
+    paths = await asyncio.to_thread(lambda: sorted(docs_dir.rglob("*.md")))
 
     print(f"Paths: {paths}")
     async with httpx.AsyncClient(timeout=60.0) as client:
         for path in paths:
             content = await asyncio.to_thread(path.read_text)
+            visibility = path.parent.name if path.parent != docs_dir else "public"
             response = await client.post(
                 "http://localhost:8000/api/ai/documents/ingest",
                 json={
                     "document_id": path.stem,
                     "content": content,
                     "metadata": {"source": str(path), "title": path.stem.replace("_", " ")},
+                    "visibility": visibility
                 },
             )
             print(f"{path.name}: {response.json()}")

@@ -7,6 +7,7 @@ class IngestRequest(BaseModel):
     document_id: str = Field(..., max_length=100)
     content: str = Field(..., min_length=10)
     metadata: dict[str, Any] | None = None
+    visibility: str = Field("public", pattern="^(public|private|compliance_only)$")
 
 
 class IngestResponse(BaseModel):

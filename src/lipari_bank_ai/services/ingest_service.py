@@ -1,5 +1,6 @@
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lipari_bank_ai.db.models import DocumentChunk
@@ -13,21 +14,31 @@ class IngestService:
         self.embedding_client = embedding_client
 
     async def ingest_document(
-        self, document_id: str, content: str, metadata: dict[str, Any] | None = None,
+        self,
+        document_id: str,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+        visibility: str = "public",
     ) -> int:
-        # Ho tutti documenti markdown con paragrafi separati da ## quindi non ho bisogno di overlap
         chunks = chunk_text(content, chunk_size=500, overlap=0)
+        if not chunks:
+            raise ValueError(f"Documento {document_id!r} vuoto: nessun chunk prodotto")
+
         embeddings = await self.embedding_client.embed(chunks)
 
-        for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True)):
-            db_chunk = DocumentChunk(
+        await self.session.execute(
+            delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        )
+        self.session.add_all(
+            DocumentChunk(
                 document_id=document_id,
                 chunk_index=idx,
                 content=chunk,
                 embedding=embedding,
                 chunk_metadata=metadata or {},
+                visibility=visibility,
             )
-            self.session.add(db_chunk)
-
+            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
+        )
         await self.session.commit()
         return len(chunks)
