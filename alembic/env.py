@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.db.session import Base
+import lipari_bank_ai.db.models
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

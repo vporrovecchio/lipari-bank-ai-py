@@ -4,7 +4,7 @@ from typing import Any
 import jwt
 from fastapi import HTTPException, status
 
-from src.lipari_bank_ai.config import settings
+from lipari_bank_ai.config import settings
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_TTL = timedelta(minutes=30)

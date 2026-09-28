@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from lipari_bank_ai.api import auth, categorize, chat, advice
+from lipari_bank_ai.api import auth, categorize, chat, advice, agent
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.exceptions import AppError
 
@@ -66,3 +66,4 @@ app.include_router(chat.router)
 app.include_router(categorize.router)
 app.include_router(advice.router)
 app.include_router(auth.router)
+app.include_router(agent.router)
