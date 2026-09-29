@@ -16,6 +16,8 @@ from openai.types.completion_usage import CompletionUsage
 from pydantic import ValidationError
 
 from lipari_bank_ai.agents.registry import Tool
+from lipari_bank_ai.auth.deps import UserContext
+from lipari_bank_ai.db.runs import RunRepository
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,13 @@ BUDGET_PER_RUN = Decimal("0.05")      # euro
 PREZZI_PER_1K = {                     # euro per mille token (ingresso, uscita), come al Giorno 4
     "gpt-4o-mini": (Decimal("0.00014"), Decimal("0.00056")),
     "gpt-4o": (Decimal("0.0023"), Decimal("0.0091")),
+    "qwen2.5:7b": (Decimal("0"), Decimal("0")),
 }
+SENZA_APPROVAZIONE = (
+    "Questa azione richiede l'approvazione di un responsabile, e da qui non si può chiedere: "
+    "non è stata eseguita. Non ritentarla: riferisci all'utente che va richiesta dal flusso "
+    "con approvazione."
+)
 
 
 @dataclass
@@ -33,35 +41,37 @@ class RunResult:
     reply: str = ""
     steps: int = 0
     tool_calls: list[str] = field(default_factory=list)
-    stopped_by: str = ""              # "model" | "max_steps" | "budget"
+    stopped_by: str = ""              # "model" | "max_steps" | "budget" | "awaiting_approval"
     cost_eur: Decimal = Decimal("0")
 
 
 async def run_agent(
     messaggi: list[ChatCompletionMessageParam], tools: list[Tool], client: AsyncOpenAI, model: str,
     max_steps: int = MAX_STEPS,
+    *, runs: RunRepository | None = None, user: UserContext | None = None,
+    run: RunResult | None = None,
 ) -> RunResult:
     """Chiama il modello finché chiede tool, poi ritorna la sua risposta.
 
-    Riceve la conversazione e non la domanda: così lo stesso ciclo serve una domanda
-    nuova, una conversazione salvata da riprendere e uno specialista con metà dei tool.
-    Esce per una delle tre ragioni in `stopped_by`, e chi legge il risultato
-    deve poterle distinguere senza guardare il testo della risposta.
+    Dal Giorno 8 sa anche fermarsi: se un tool del passo va approvato, salva lo stato in
+    `runs` per conto di `user` ed esce con stopped_by="awaiting_approval", prima che
+    qualunque tool di quel passo sia partito. Senza `runs` e `user` quel tool non parte.
+    `run` è il run da continuare quando riprende: stesso id, stessi passi, stesso costo.
     """
     if model not in PREZZI_PER_1K:    # meglio fermarsi qui che scoprirlo dopo aver pagato
         raise ValueError(f"Nessun prezzo per {model}: il budget non sarebbe calcolabile.")
     messaggi = list(messaggi)                     # la lista di chi chiama non si tocca
     by_name = {t.name: t for t in tools}          # il dispatch vede SOLO i tool offerti
     schemi = [t.to_openai_schema() for t in tools]
-    run = RunResult(run_id=str(uuid4()))          # la chiave di ogni riga di traccia
+    run = run or RunResult(run_id=str(uuid4()))   # alla ripresa il run arriva da fuori
 
-    for _ in range(max_steps):                    # il tetto è nella struttura
+    for _ in range(max_steps - run.steps):        # il tetto conta anche i passi di prima
         run.steps += 1
         risposta = await client.chat.completions.create(
             model=model, messages=messaggi, max_tokens=500,
             tools=schemi or omit,                 # l'API rifiuta una lista vuota
         )
-        run.cost_eur += _costo(risposta.usage, model)
+        run.cost_eur += costo_chiamata(risposta.usage, model)
         choice = risposta.choices[0].message
 
         if not choice.tool_calls:                 # uscita 1: ha risposto
@@ -77,20 +87,30 @@ async def run_agent(
         # PRIMA l'assistant con le chiamate, poi i risultati: altrimenti l'API rifiuta
         assistente = choice.model_dump(exclude_none=True)
         messaggi.append(cast(ChatCompletionAssistantMessageParam, assistente))
-        for call in choice.tool_calls:
-            if not isinstance(call, ChatCompletionMessageFunctionToolCall):
-                continue                          # offriamo solo function tool
-            run.tool_calls.append(call.function.name)
-            tool = by_name.get(call.function.name)
-            inizio = time.perf_counter()
-            esito = await _execute(by_name, call)
-            logger.info("agent_step", extra={
-                "run_id": run.run_id, "step": run.steps, "tool": call.function.name,
-                # gli argomenti di un tool che scrive non vanno nel log: stanno nella sua tabella
-                "tool_args": "<omessi>" if tool and tool.scrive else call.function.arguments[:200],
-                "result_preview": esito[:200], "result_len": len(esito),
-                "duration_ms": int((time.perf_counter() - inizio) * 1000),
-            })
+        chiamate = [c for c in choice.tool_calls
+                    if isinstance(c, ChatCompletionMessageFunctionToolCall)]
+        in_attesa = [c for c in chiamate if richiede_approvazione(by_name, c)]
+
+        if in_attesa and runs is not None and user is not None:
+            # uscita 4: nessun tool di QUESTO passo è partito, nemmeno quelli in lettura.
+            # Alla ripresa partono tutti, nell'ordine: il modello li aveva chiesti insieme
+            descrizione = descrivi_attesa(by_name, in_attesa, user, run.run_id)
+            await runs.sospendi(
+                run_id=run.run_id, username=user.username, role=user.role,
+                messages=[dict(m) for m in messaggi],
+                pending_calls=[c.model_dump() for c in chiamate], description=descrizione,
+                steps=run.steps, cost_eur=run.cost_eur, tool_calls=run.tool_calls,
+            )
+            run.stopped_by = "awaiting_approval"
+            run.reply = descrizione
+            return run
+
+        for call in chiamate:
+            if call in in_attesa:                 # nessuno a cui chiedere: non parte
+                logger.warning("tool_senza_approvazione", extra={"tool": call.function.name})
+                esito = SENZA_APPROVAZIONE
+            else:
+                esito = await esegui_e_registra(by_name, call, run)
             messaggi.append({"role": "tool", "tool_call_id": call.id, "content": esito})
 
     run.stopped_by = "max_steps"                  # uscita 2: tetto raggiunto, NON è una risposta
@@ -99,7 +119,51 @@ async def run_agent(
     return run
 
 
-def _costo(usage: CompletionUsage | None, model: str) -> Decimal:
+def richiede_approvazione(by_name: dict[str, Tool],
+                          call: ChatCompletionMessageFunctionToolCall) -> bool:
+    """Decide sugli argomenti VALIDATI, e nel dubbio chiede."""
+    tool = by_name.get(call.function.name)
+    if tool is None or not tool.scrive:
+        return False                              # un nome inventato o un tool in lettura
+    try:
+        args = tool.args_model.model_validate_json(call.function.arguments)
+    except ValidationError:
+        return False                              # non partirà: _execute rimanda l'errore
+    return tool.serve_approvazione is None or tool.serve_approvazione(args)
+
+
+def descrivi_attesa(by_name: dict[str, Tool], calls: list[ChatCompletionMessageFunctionToolCall],
+                    user: UserContext, run_id: str) -> str:
+    """Cosa sta per succedere, in una forma che una persona può approvare o respingere."""
+    righe = []
+    for call in calls:
+        args = by_name[call.function.name].args_model.model_validate_json(call.function.arguments)
+        campi = ", ".join(f"{k}={v}" for k, v in args.model_dump(mode="json").items()
+                          if v is not None)
+        righe.append(f"- {call.function.name}: {campi}")
+    return (f"Serve l'approvazione di un responsabile, richiesta da {user.username}, per:\n"
+            + "\n".join(righe) + f"\nPratica in attesa: {run_id}. Nulla è stato ancora eseguito.")
+
+
+async def esegui_e_registra(by_name: dict[str, Tool], call: ChatCompletionMessageFunctionToolCall,
+                            run: RunResult) -> str:
+    """Esegue un tool e ne lascia la riga di traccia. La usa anche la ripresa."""
+    run.tool_calls.append(call.function.name)
+    tool = by_name.get(call.function.name)
+    inizio = time.perf_counter()
+    esito = await _execute(by_name, call)
+    logger.info("agent_step", extra={
+        "run_id": run.run_id, "step": run.steps, "tool": call.function.name,
+        # gli argomenti di un tool che scrive non vanno nel log: stanno nella sua tabella
+        "tool_args": "<omessi>" if tool and tool.scrive else call.function.arguments[:200],
+        "result_preview": esito[:200], "result_len": len(esito),
+        "duration_ms": int((time.perf_counter() - inizio) * 1000),
+    })
+    return esito
+
+
+def costo_chiamata(usage: CompletionUsage | None, model: str) -> Decimal:
+    """Il `_costo` del Giorno 7, ora pubblico: lo usa anche il supervisor."""
     if usage is None:
         return Decimal("0")
     ingresso, uscita = PREZZI_PER_1K[model]

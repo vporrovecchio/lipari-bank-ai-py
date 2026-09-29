@@ -14,6 +14,7 @@ class Tool:
     args_model: type[BaseModel]
     run: Callable[[BaseModel], Awaitable[str]]
     scrive: bool = True
+    serve_approvazione: Callable[[Any], bool] | None = None
 
     def to_openai_schema(self) -> dict[str, Any]:
         schema = self.args_model.model_json_schema()

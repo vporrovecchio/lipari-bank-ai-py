@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.db.repos import AccountRepository, MovementRepository
+from lipari_bank_ai.db.runs import RunRepository
 from lipari_bank_ai.db.session import get_db
 from lipari_bank_ai.llm.embedding_client import EmbeddingClient
 from lipari_bank_ai.services.alerts import AlertService
@@ -19,25 +20,28 @@ class Deps:
     accounts: AccountRepository
     movements: MovementRepository
     alerts: AlertService
+    runs: RunRepository
     retrieval: RetrievalService
     embedder: EmbeddingClient
-    openai: AsyncOpenAI          # il client grezzo: `complete` del Giorno 4 non ha i tool
+    openai: AsyncOpenAI
     model: str
 
 
 @lru_cache
 def _openai_client() -> AsyncOpenAI:
-    # uno per processo, riusato: il pool di connessioni vive nel client (Giorno 4)
-    return AsyncOpenAI(api_key=settings.openai_api_key, timeout=20.0)
+    return AsyncOpenAI(
+        api_key="ollama", base_url=f"{settings.ollama_url}/v1", timeout=120.0
+    )
 
 
-async def get_deps(db: Annotated[AsyncSession, Depends(get_db)]) -> Deps:
+def get_deps(db: Annotated[AsyncSession, Depends(get_db)]) -> Deps:
     return Deps(
         accounts=AccountRepository(db),
         movements=MovementRepository(db),
         alerts=AlertService(db),
+        runs=RunRepository(db),
         retrieval=RetrievalService(db, embedding_client=EmbeddingClient()),
         embedder=EmbeddingClient(),
         openai=_openai_client(),
-        model=settings.default_model,
+        model=settings.agent_model,
     )
