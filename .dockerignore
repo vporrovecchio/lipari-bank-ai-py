@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+
+# storia e strumenti
+.git/
+.github/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# segreti — le due righe che contano
+.env
+.env.*
+
+# cose che al runtime non servono
+tests/
+evals/
+docs/
+*.md
+!README.md
