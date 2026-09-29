@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from datetime import date
 from decimal import Decimal
+import os
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -18,11 +19,14 @@ from lipari_bank_ai.llm.embedding_client import EmbeddingClient
 from lipari_bank_ai.services.alerts import AlertService
 from lipari_bank_ai.services.retrieval_service import RetrievalService
 
+os.environ["OPENAI_API_KEY"] = "sk-test-mai-valida"
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test-mai-valida"
+
 CLIENTE_DI_MARCO = "C-10234"           # nel portafoglio di mbianchi
 CLIENTE_ALTRUI = "C-20417"             # nel portafoglio di un collega, pgalli
 CONTO_DI_MARCO = "IT60X0542811101000000123"
 CONTO_ALTRUI = "IT60X0542811101000000789"
-TABELLE_DEL_GIORNO = ["customers", "accounts", "movements", "compliance_alerts", "agent_runs"]
+TABELLE_DEL_GIORNO = ["customers", "accounts", "movements", "compliance_alerts", "agent_runs", "llm_calls"]
 
 
 def risposta(*, tool: str | None = None, argomenti: str = "{}", testo: str | None = None,

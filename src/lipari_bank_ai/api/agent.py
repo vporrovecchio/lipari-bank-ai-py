@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from lipari_bank_ai.agents.prompts import AGENT_SYSTEM
 from lipari_bank_ai.agents.supervisor import run_supervisor
 from lipari_bank_ai.agents.tools import build_tools_for
 from lipari_bank_ai.auth.deps import UserContext, get_current_user, require_role
+from observability.ledger import CostLedger
 
 router = APIRouter(prefix="/api/ai", tags=["agent"])
 
@@ -150,3 +152,12 @@ async def _decidi(run_id: str, approvatore: UserContext, *, approvato: bool,
     if ripreso.stopped_by != "awaiting_approval":
         await deps.runs.chiudi(run_id, "done" if approvato else "rejected")
     return _risposta(ripreso)
+
+async def _registra(
+    deps: Deps, endpoint: str, username: str, run_id: str | None, costo: Decimal
+) -> None:
+    """Giorno 9: il costo nel registro. La sessione è quella dei servizi dell'agente."""
+    CostLedger(deps.runs.session).aggiungi(
+        endpoint=endpoint, username=username, model=deps.model, cost_eur=costo, run_id=run_id
+    )
+    await deps.runs.session.commit()

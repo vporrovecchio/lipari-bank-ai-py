@@ -2,11 +2,13 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lipari_bank_ai.db.models import ChatSession
 from lipari_bank_ai.db.repos import ChatRepository
 from lipari_bank_ai.exceptions import ChatSessionNotFoundError
 from lipari_bank_ai.llm.client import LLMProvider
-from lipari_bank_ai.llm.types import Message
+from lipari_bank_ai.llm.types import LLMResponse, Message
 from lipari_bank_ai.types.chat import ChatRequest, ChatResponse
+from observability.ledger import CostLedger
 
 
 class ChatService:
@@ -55,3 +57,21 @@ class ChatService:
             model_used=llm_response.model,
             created_at=datetime.now(UTC),
         )
+    async def _salva(self, chat: ChatSession, domanda: str, risposta: LLMResponse) -> None:
+        await self.repo.add_message(chat.id, "user", domanda)
+        await self.repo.add_message(
+            chat.id,
+            "assistant",
+            risposta.content,
+            tokens=risposta.tokens_used,
+            cost_eur=risposta.cost_eur,
+            model_used=risposta.model,
+        )
+        CostLedger(self.session).aggiungi(  # Giorno 9: il costo anche nel registro
+            endpoint="chat",
+            username=chat.user_id,
+            model=risposta.model,
+            tokens=risposta.tokens_used,
+            cost_eur=risposta.cost_eur,
+        )
+        await self.session.commit()  # una volta, a lavoro finito: le tre scritture valgono insieme

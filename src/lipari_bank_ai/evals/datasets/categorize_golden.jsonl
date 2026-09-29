@@ -1,0 +1,36 @@
+{"input": {"description": "Bonifico Enel Energia bolletta marzo", "amount": 85.50}, "expected": {"category": "UTILITIES"}}
+{"input": {"description": "Esselunga supermercato", "amount": 45.20}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Distributore IP carburante", "amount": 60.00}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "Ristorante La Vigna", "amount": 35.00}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "Netflix abbonamento", "amount": 12.99}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "Bonifico generico Mario Rossi", "amount": 50.00}, "expected": {"category": "OTHER"}}
+{"input": {"description": "A2A Energia luce abitazione", "amount": 92.30}, "expected": {"category": "UTILITIES"}}
+{"input": {"description": "Bolletta gas Italgas dicembre", "amount": 120.45}, "expected": {"category": "UTILITIES"}}
+{"input": {"description": "Telecom Italia linea fissa", "amount": 29.90}, "expected": {"category": "UTILITIES"}}
+{"input": {"description": "Acquedotto Pugliese fornitura idrica", "amount": 48.70}, "expected": {"category": "UTILITIES"}}
+{"input": {"description": "Conad acquisti alimentari", "amount": 38.60}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Coop Centro spesa settimanale", "amount": 73.15}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Pescheria Da Franco", "amount": 26.40}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Panetteria Forno del Borgo", "amount": 8.20}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Ipercoop tessili per la casa", "amount": 55.00}, "expected": {"category": "GROCERIES"}}
+{"input": {"description": "Taxi Nunzio Corsa urbana", "amount": 21.50}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "ATM Milano biglietto metropolitana", "amount": 4.50}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "Autostrade per l'Italia pedaggio", "amount": 12.80}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "Trenitalia biglietto regionale", "amount": 18.00}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "Shell rifornimento benzina", "amount": 75.60}, "expected": {"category": "TRANSPORT"}}
+{"input": {"description": "Pizzeria Da Michele", "amount": 42.00}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "Sushi Wok cena", "amount": 58.90}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "Bar Centrale colazione", "amount": 6.50}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "Trattoria Dal Nonno pranzo", "amount": 28.00}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "McDonald's Drive", "amount": 14.30}, "expected": {"category": "RESTAURANTS"}}
+{"input": {"description": "Spotify Premium mensile", "amount": 10.99}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "Disney Plus abbonamento", "amount": 8.99}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "Cinema UCI biglietto", "amount": 11.00}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "LaFeltrinelli acquisto libri", "amount": 32.50}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "Steam gioco", "amount": 24.99}, "expected": {"category": "ENTERTAINMENT"}}
+{"input": {"description": "Agenzia delle Entrate 730", "amount": 220.00}, "expected": {"category": "OTHER"}}
+{"input": {"description": "Palestra FitWorld abbonamento", "amount": 45.00}, "expected": {"category": "OTHER"}}
+{"input": {"description": "Farmacia Comunale farmaci", "amount": 18.75}, "expected": {"category": "OTHER"}}
+{"input": {"description": "Studio Dentistico Modena visita", "amount": 80.00}, "expected": {"category": "OTHER"}}
+{"input": {"description": "Bonifico affitto settembre Milano", "amount": 850.00}, "expected": {"category": "OTHER"}}
+{"input": {"description": "Assicurazione auto UnipolSai", "amount": 640.00}, "expected": {"category": "OTHER"}}

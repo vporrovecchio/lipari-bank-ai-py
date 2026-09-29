@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -12,20 +13,34 @@ from lipari_bank_ai.services.ingest_service import IngestService
 from lipari_bank_ai.services.rag_service import RAGService
 from lipari_bank_ai.services.retrieval_service import RetrievalService
 from lipari_bank_ai.types.advice import AdviceRequest, AdviceResponse, IngestRequest, IngestResponse
+from observability.ledger import CostLedger
 
 router = APIRouter(prefix="/api/ai", tags=["Advice"])
+
+
+def get_rag_service(db: Annotated[AsyncSession, Depends(get_db)]) -> RAGService:
+    retrieval = RetrievalService(db, EmbeddingClient())
+    return RAGService(retrieval, get_llm_provider())
 
 
 @router.post("/advice", response_model=AdviceResponse)
 async def advice(
     req: AdviceRequest,
     user: Annotated[UserContext, Depends(get_current_user)],
-    db: AsyncSession = Depends(get_db),
+    service: Annotated[RAGService, Depends(get_rag_service)],
+    session: Annotated[AsyncSession, Depends(get_db)],  # la stessa sessione del servizio
 ) -> AdviceResponse:
-    embedding_client = EmbeddingClient()
-    retrieval = RetrievalService(db, embedding_client)
-    rag = RAGService(retrieval, get_llm_provider())
-    return await rag.advice(req.question, user)
+    risposta = await service.advice(req.question, user)
+    # Giorno 9: la generazione nel registro. La riscrittura qui non c'è: vedi il Code Blueprint
+    CostLedger(session).aggiungi(
+        endpoint="advice",
+        username=user.username,
+        model=settings.default_model,
+        tokens=risposta.tokens_used,
+        cost_eur=Decimal(str(risposta.cost_eur)),
+    )
+    await session.commit()
+    return risposta
 
 
 @router.post("/documents/ingest", response_model=IngestResponse)

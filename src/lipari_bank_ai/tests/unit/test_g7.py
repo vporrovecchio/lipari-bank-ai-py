@@ -170,6 +170,16 @@ async def test_il_passaggio_torna_troncato_alla_fonte(
         [0.1, 0.2, 0.3], marco.role, top_k=3)
 
 
+async def test_una_ricerca_senza_passaggi_lo_dice_e_non_inventa(
+    deps_spia: MagicMock, marco: UserContext
+) -> None:
+    deps_spia.embedder.embed_one = AsyncMock(return_value=[0.1, 0.2, 0.3])
+    deps_spia.retrieval.search_for_user = AsyncMock(return_value=[])
+    esito = await _tool(build_tools_for(marco, deps_spia), "search_documents").run(
+        RicercaArgs(query="soglie paesi a rischio"))
+    assert esito == "Niente nei documenti visibili a questo ruolo."
+
+
 async def test_un_tool_che_fallisce_diventa_osservazione() -> None:
     class Vuoti(BaseModel):
         pass
@@ -183,7 +193,7 @@ async def test_un_tool_che_fallisce_diventa_osservazione() -> None:
         risposta(testo="Il dato ora non è disponibile."),
     ]
     run = await run_agent(messaggi=[{"role": "user", "content": "saldo?"}],
-                          tools=[Tool("get_account_balance", "saldo", Vuoti, rotto)],
+                          tools=[Tool("get_account_balance", "saldo", Vuoti, rotto, scrive=False)],
                           client=client, model="gpt-4o-mini")
     osservazione = client.chat.completions.create.call_args.kwargs["messages"][-1]
     assert osservazione["role"] == "tool" and "non ha potuto completare" in osservazione["content"]
@@ -274,8 +284,10 @@ async def test_gli_argomenti_di_un_tool_che_scrive_non_vanno_nel_log(
 ) -> None:
     client = AsyncMock()
     client.chat.completions.create.side_effect = [
+        # l'importo sotto soglia: senza approvazione il tool parte, e sono i suoi argomenti
+        # che non devono finire nel log
         risposta(tool="apri_segnalazione_compliance",
-                 argomenti=f'{{"account_id": "{CONTO_DI_MARCO}", '
+                 argomenti=f'{{"account_id": "{CONTO_DI_MARCO}", "importo": 1000, '
                            '"motivo": "Cliente Paolo Ferri, bonifici ripetuti verso Panama"}'),
         risposta(testo="Segnalazione aperta."),
     ]

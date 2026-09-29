@@ -7,14 +7,20 @@ from lipari_bank_ai.llm.types import LLMResponse, Message
 
 
 class OpenAIProvider:
-    PRICING = {  # EUR per 1k tokens (input/output)
+    # EUR per 1k token (input/output)
+    PRICING = {
         "gpt-4o-mini": (0.00014, 0.00056),
         "gpt-4o": (0.0023, 0.0091),
     }
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
-        self.client = AsyncOpenAI(api_key=api_key)
+    def __init__(
+        self, api_key: str, model: str = "gpt-4o-mini", base_url: str | None = None
+    ) -> None:
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.model = model
+        # un modello in locale non si paga: senza prezzo noto il costo è zero, ma la
+        # riga resta registrata e il consumo di token è comunque visibile
+        self._prezzo = self.PRICING.get(model, (0.0, 0.0))
 
     async def complete(self, messages: list[Message], max_tokens: int = 500) -> LLMResponse:
         openai_messages: list[ChatCompletionMessageParam] = [
@@ -30,7 +36,7 @@ class OpenAIProvider:
         usage = response.usage
         input_tokens = usage.prompt_tokens if usage else 0
         output_tokens = usage.completion_tokens if usage else 0
-        input_cost, output_cost = self.PRICING[self.model]
+        input_cost, output_cost = self._prezzo
         cost_eur = (input_tokens * input_cost + output_tokens * output_cost) / 1000
 
         return LLMResponse(

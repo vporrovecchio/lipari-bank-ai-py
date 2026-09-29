@@ -1,0 +1,23 @@
+{"query": "Costo bonifico SEPA istantaneo", "expected_doc_id": "commissioni_bonifico"}
+{"query": "Tariffe carta di credito Platinum", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Commissione bonifico SEPA standard", "expected_doc_id": "commissioni_bonifico"}
+{"query": "Quanto costa un bonifico estero fuori area SEPA", "expected_doc_id": "commissioni_bonifico"}
+{"query": "Importo massimo per bonifico istantaneo", "expected_doc_id": "commissioni_bonifico"}
+{"query": "Tempi di esecuzione bonifico SEPA oltre le 14", "expected_doc_id": "commissioni_bonifico"}
+{"query": "Canone annuo carta Platinum", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Quanto posso prelevare al bancomat con la carta di credito", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "TAEG pagamento rateale carta di credito", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Come funziona il pagamento a rate della carta", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Costi prelievi ATM circuito internazionale", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Commissione pagamenti in valuta estera", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Responsabilità in caso di furto della carta", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Requisiti per richiedere la carta di credito", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Preavviso per modifiche alle condizioni della carta", "expected_doc_id": "condizioni_carta_credito"}
+{"query": "Documenti necessari per aprire un conto corrente", "expected_doc_id": "regolamento_conti"}
+{"query": "Canone trimestrale del conto corrente", "expected_doc_id": "regolamento_conti"}
+{"query": "Interessi attivi sul saldo disponibile", "expected_doc_id": "regolamento_conti"}
+{"query": "Come chiudo il conto corrente", "expected_doc_id": "regolamento_conti"}
+{"query": "Dove invio un reclamo alla banca", "expected_doc_id": "regolamento_conti"}
+{"query": "Costo prelievo bancomat presso altri sportelli", "expected_doc_id": "regolamento_conti"}
+{"query": "Entro quando contestare un errore in estratto conto", "expected_doc_id": "regolamento_conti"}
+{"query": "Tasso di scoperto del conto corrente", "expected_doc_id": "regolamento_conti"}

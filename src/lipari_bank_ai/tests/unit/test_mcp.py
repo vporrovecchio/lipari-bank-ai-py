@@ -73,11 +73,16 @@ async def test_il_loop_del_giorno_7_usa_il_server_senza_cambiare(
     ]
     async with Client(server.mcp) as c:
         tools = await tools_dal_server(c, nomi={"search_policy"})
+        # la stessa domanda, dritta al server: è la sua risposta che il ciclo deve girare
+        # al modello, e non un testo scritto qui (il database è quello del dev)
+        risposta_server = await c.call_tool("search_policy", {"query": "soglie paesi a rischio"})
+        atteso = "\n".join(t.text for t in risposta_server.content if isinstance(t, TextContent))
         run = await run_agent(messaggi=[{"role": "user", "content": "soglie?"}], tools=tools,
                               client=modello, model="gpt-4o-mini")
     assert tools[0].scrive is False                            # dichiarato dal server
+    assert not risposta_server.is_error
     osservazione = modello.chat.completions.create.call_args.kwargs["messages"][-1]["content"]
-    assert osservazione == "Niente nei documenti visibili a questo ruolo."
+    assert osservazione == atteso
     assert (run.stopped_by, run.tool_calls) == ("model", ["search_policy"])
 
 
