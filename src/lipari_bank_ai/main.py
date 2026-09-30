@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from redis import asyncio
 from sqlalchemy import engine
 
-from lipari_bank_ai.api import admin, advice, agent, auth, categorize, chat
+from lipari_bank_ai.api import admin, advice, agent, auth, categorize, chat, graph
 from lipari_bank_ai.cache import chiudi_redis, get_redis
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.exceptions import AppError
@@ -147,3 +147,4 @@ app.include_router(advice.router)
 app.include_router(auth.router)
 app.include_router(agent.router)
 app.include_router(admin.router)
+app.include_router(graph.router)
