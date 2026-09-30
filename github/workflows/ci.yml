@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true          # un push nuovo annulla la build precedente
+
+jobs:
+  segreti:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # tutta la storia: una chiave tolta con un commit è ancora lì
+      - run: >-
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0
+          git /repo --no-banner --config /repo/.gitleaks.toml
+
+  qualita:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true         # la cache di uv fra un'esecuzione e l'altra
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src tests evals scripts liparibank_mcp
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lipari
+          POSTGRES_PASSWORD: lipari
+          POSTGRES_DB: lipari_ai_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      # le chiavi finte e il segreto dei test li mette il conftest della radice; qui solo dove
+      # sta il database. Niente Redis: nei test la cache è quella finta di fakeredis
+      TEST_DATABASE_URL: postgresql+asyncpg://lipari:lipari@localhost:5432/lipari_ai_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run pytest -q --cov=src --cov-fail-under=80
+
+  immagine:
+    runs-on: ubuntu-latest
+    needs: [segreti, qualita, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false                # in questo corso si costruisce, non si pubblica
+          tags: lipari-bank-ai:${{ github.sha }}

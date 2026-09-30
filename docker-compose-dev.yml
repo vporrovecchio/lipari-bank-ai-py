@@ -1,0 +1,74 @@
+x-app: &app
+  build: .
+  image: lipari-bank-ai:dev
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lipari}:${POSTGRES_PASSWORD:?serve POSTGRES_PASSWORD nel .env}@db:5432/${POSTGRES_DB:-lipari_ai}
+    REDIS_URL: redis://cache:6379/0
+    JWT_SECRET: ${JWT_SECRET:?serve JWT_SECRET nel .env}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:?serve OPENAI_API_KEY nel .env}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
+    DAILY_BUDGET_EUR: ${DAILY_BUDGET_EUR:-5.00}
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lipari}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?serve POSTGRES_PASSWORD nel .env}
+      POSTGRES_DB: ${POSTGRES_DB:-lipari_ai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lipari} -d ${POSTGRES_DB:-lipari_ai}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:5433:5432"   # solo dal tuo host; la 5432 resta al Postgres dei test
+
+  cache:
+    image: redis:7-alpine
+    # niente persistenza, e un tetto di memoria con sfratto: dentro c'è solo ciò che si ricalcola
+    command: ["redis-server", "--save", "", "--appendonly", "no",
+              "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    <<: *app
+    command: ["python", "-m", "scripts.seed_all"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      cache:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      cache:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    stop_grace_period: 40s       # più del --graceful-timeout: altrimenti SIGKILL dopo 10 secondi
+    deploy:
+      resources:
+        limits:
+          memory: 1g             # il primo processo che cresce non si prende la macchina
+
+volumes:
+  pgdata:

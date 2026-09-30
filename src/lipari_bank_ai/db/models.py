@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -161,3 +161,51 @@ class LlmCall(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
 )
+
+class GraphNode(Base):
+    __tablename__ = "graph_nodes"
+
+    chiave: Mapped[str] = mapped_column(String(200), primary_key=True)  # "Cliente:C-10234"
+    tipo: Mapped[str] = mapped_column(String(32), index=True)
+    nome: Mapped[str] = mapped_column(String(200))  # la prima menzione vista: per leggere
+
+
+class GraphEdge(Base):
+    __tablename__ = "graph_edges"
+    # lo stesso fatto dallo stesso documento è un arco solo: è il MERGE del grafo
+    __table_args__ = (UniqueConstraint("da", "tipo", "a", "document_id", name="uq_arco"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    da: Mapped[str] = mapped_column(ForeignKey("graph_nodes.chiave"), index=True)
+    tipo: Mapped[str] = mapped_column(String(32))
+    a: Mapped[str] = mapped_column(ForeignKey("graph_nodes.chiave"), index=True)
+    # la provenienza: senza, l'arco è un'affermazione che il sistema non sa giustificare
+    document_id: Mapped[str] = mapped_column(String, index=True)
+    citazione: Mapped[str] = mapped_column(Text)
+    # il livello del documento da cui viene: l'ACL del Giorno 6, portata sugli archi
+    visibility: Mapped[str] = mapped_column(String(32), index=True)
+
+
+class GraphReview(Base):
+    """La coda di revisione: due nomi simili che solo una persona può dire se sono lo stesso."""
+
+    __tablename__ = "graph_revisione"
+    __table_args__ = (UniqueConstraint("chiave", "candidata", name="uq_revisione"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    chiave: Mapped[str] = mapped_column(String(200), index=True)
+    candidata: Mapped[str] = mapped_column(String(200))
+    somiglianza: Mapped[float]
+    document_id: Mapped[str] = mapped_column(String)
+    stato: Mapped[str] = mapped_column(String(16), default="da_rivedere")  # o "unite", "diverse"
+
+
+class GraphExtraction(Base):
+    """Cosa è già stato estratto, e da quale versione del testo: l'estrazione è incrementale."""
+
+    __tablename__ = "graph_estratti"
+
+    document_id: Mapped[str] = mapped_column(String, primary_key=True)
+    impronta: Mapped[str] = mapped_column(String(64))
+    relazioni: Mapped[int] = mapped_column(Integer, default=0)
+    scartate: Mapped[int] = mapped_column(Integer, default=0)

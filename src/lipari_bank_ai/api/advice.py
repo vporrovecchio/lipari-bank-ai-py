@@ -5,15 +5,21 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lipari_bank_ai.auth.deps import UserContext, get_current_user
+from lipari_bank_ai.cache import get_redis
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.db.session import get_db
 from lipari_bank_ai.llm.embedding_client import EmbeddingClient
 from lipari_bank_ai.llm.factory import get_llm_provider
+from lipari_bank_ai.llm.limiter import per_utente
+from lipari_bank_ai.llm.prompt import load_prompt
+from lipari_bank_ai.llm.rewriter import QueryRewriter
 from lipari_bank_ai.services.ingest_service import IngestService
 from lipari_bank_ai.services.rag_service import RAGService
 from lipari_bank_ai.services.retrieval_service import RetrievalService
 from lipari_bank_ai.types.advice import AdviceRequest, AdviceResponse, IngestRequest, IngestResponse
 from observability.ledger import CostLedger
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/api/ai", tags=["Advice"])
 
@@ -49,3 +55,11 @@ async def ingest(req: IngestRequest, db: AsyncSession = Depends(get_db)) -> Inge
     service = IngestService(db, embedding_client)
     count = await service.ingest_document(req.document_id, req.content, req.metadata, req.visibility)
     return IngestResponse(chunk_count=count, embedding_dim=settings.embedding_dim)
+
+limiter = Limiter(
+    key_func=per_utente,
+    storage_uri=settings.redis_url or "memory://",
+    in_memory_fallback_enabled=True,
+)
+def get_rewriter() -> QueryRewriter:
+    return QueryRewriter(get_llm_provider(), load_prompt("rewrite_system_v1"), cache=get_redis())

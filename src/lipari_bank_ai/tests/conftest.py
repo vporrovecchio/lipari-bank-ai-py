@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import date
 from decimal import Decimal
 import os
@@ -88,3 +88,18 @@ def deps_spia() -> MagicMock:
     deps.movements.recent = AsyncMock(return_value=[])
     deps.alerts.apri = AsyncMock()
     return deps
+
+@pytest.fixture(scope="session", autouse=True)
+def modelli_finti() -> Iterator[None]:
+    """Dal Giorno 4 nessun test chiama un modello vero: costerebbe, e risponderebbe ogni volta
+    in un modo diverso. La chat parla con un finto che ripete la domanda, la categorizzazione
+    usa la regola del Giorno 2. Un test che vuole un modello preciso mette il suo."""
+    from lipari_bank_ai.api.categorize import get_categorize_service
+    from lipari_bank_ai.llm.factory import get_llm_provider
+    from lipari_bank_ai.main import app
+    from lipari_bank_ai.tests.finti import CategorizzazioneARegole, ModelloEco
+
+    app.dependency_overrides[get_llm_provider] = ModelloEco
+    app.dependency_overrides[get_categorize_service] = CategorizzazioneARegole
+    yield
+    app.dependency_overrides.clear()

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     max_tokens_per_request: int = 2000
     jwt_secret: str
     soglia_approvazione_eur: Decimal = Decimal("5000")
+    redis_url: str = ""
 
 
 settings = Settings()  # raise at import if missing required

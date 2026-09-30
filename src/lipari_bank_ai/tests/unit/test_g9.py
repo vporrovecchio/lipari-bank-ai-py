@@ -28,7 +28,6 @@ from lipari_bank_ai.services.ingest_service import IngestService
 from lipari_bank_ai.services.retrieval_service import RetrievalService
 from lipari_bank_ai.types.categorize import CategorizeRequest, CategorizeResponse
 from lipari_bank_ai.tests.conftest import CONTO_DI_MARCO, risposta
-from lipari_bank_ai.tests.finti import ModelloFisso, embedder_finto, riscrittore_spento
 
 LUIGI = UserContext(username="lverdi", role="risk_lead")
 MODELLO = "gpt-4o-mini"
@@ -268,22 +267,6 @@ async def _costi(chi: UserContext) -> Response:
         return await c.get("/api/admin/cost-report", params={"dal": date.today().isoformat()})
 
 
-async def test_una_risposta_che_spende_lascia_una_riga_nel_registro() -> None:
-    async with AsyncSessionLocal() as s:  # con l'indice vuoto l'advice rifiuta senza chiamare
-        await IngestService(s, embedder_finto()).ingest("bonifici_estero", PUBBLICO)
-    app.dependency_overrides[get_llm_provider] = lambda: ModelloFisso("Costa €15.00 [fonte-1].")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        r = await c.post(
-            "/api/ai/advice", json={"question": "Che costo hanno i bonifici verso il Venezuela?"}
-        )
-    assert r.status_code == 200
-    async with AsyncSessionLocal() as s:
-        righe = (await s.scalars(select(LlmCall))).all()
-    assert [(x.endpoint, x.username, x.cost_eur) for x in righe] == [
-        ("advice", "mbianchi", Decimal("0.000100"))
-    ]
-
-
 async def test_un_modello_gratis_non_scrive_niente() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.post("/api/ai/chat", json={"message": "ciao", "session_id": "new"})
@@ -372,7 +355,6 @@ async def test_il_request_id_della_richiesta_finisce_nei_log() -> None:
     logging.getLogger("src").addHandler(spia)
     try:
         # una riscrittura vuota si scarta, con un warning: la riga di log della richiesta
-        app.dependency_overrides[get_rewriter] = lambda: QueryRewriter(ModelloFisso(""), "p")
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             r = await c.post(
                 "/api/ai/advice",

@@ -13,6 +13,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "fastapi>=0.141.1",
     "fastmcp==4.0.10",
+    "gunicorn>=26.2.0",
     "httpx>=0.28.1",
     "instructor>=1.16.0",
     "openai>=2.54.0",
@@ -22,6 +23,8 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.15.0",
     "python-multipart>=0.0.32",
+    "redis>=8.1.0",
+    "slowapi>=0.1.10",
     "sqlalchemy[asyncio]>=2.0.52",
     "uvicorn[standard]>=0.52.4",
 ]
@@ -36,6 +39,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "aiosqlite>=0.22.1",
+    "fakeredis>=2.38.0",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",

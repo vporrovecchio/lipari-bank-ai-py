@@ -2,10 +2,12 @@ from functools import lru_cache
 
 from openai import AsyncOpenAI
 
+from lipari_bank_ai.cache import get_redis
 from lipari_bank_ai.config import settings
 from lipari_bank_ai.llm.anthropic_provider import AnthropicProvider
 from lipari_bank_ai.llm.client import LLMProvider
 from lipari_bank_ai.llm.embedding_client import EmbeddingClient
+from lipari_bank_ai.llm.embeddings import CachedEmbedder
 from lipari_bank_ai.llm.openai_provider import OpenAIProvider
 from lipari_bank_ai.llm.opencode_provider import OpencodeProvider
 
@@ -38,5 +40,7 @@ def get_openai() -> AsyncOpenAI:
 
 
 def get_embedder() -> EmbeddingClient:
-    """Il client degli embedding. Senza stato, quindi una nuova istanza ogni volta."""
-    return EmbeddingClient()
+    # lo stesso modello per i documenti e per le domande: è la regola che non si viola
+    base = EmbeddingClient(get_openai(), settings.embedding_model)
+    redis = get_redis()  # Giorno 10: con Redis, la cache davanti; senza, il client com'era
+    return CachedEmbedder(base, redis) if redis is not None else base

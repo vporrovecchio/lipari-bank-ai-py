@@ -114,11 +114,15 @@ class RAGService:
     async def advice(self, question: str, user: UserContext) -> AdviceResponse:
         fasi = Fasi()
 
+        used_fallback: bool = False
+        cache_hit: bool = False  # Giorno 10: la riscrittura veniva dalla cache condivisa
+
         rewriter = QueryRewriter(self.llm, question)
         embedder = EmbeddingClient()
 
         with _cronometro(fasi, "rewrite_ms"):
-            search_query = await rewriter.rewrite(question)
+            riscrittura = await self.rewriter.riscrivi_per_ricerca(question)
+        search_query, fasi.cache_hit = riscrittura.testo, riscrittura.da_cache
 
         with _cronometro(fasi, "embedding_ms"):
             query_vec = await embedder.embed_one(search_query)
@@ -157,8 +161,8 @@ class RAGService:
                 )
                 for c in chunks
             ],
-            tokens_used=tokens_used,
-            cost_eur=cost_eur,
+            tokens_used=tokens_used + riscrittura.tokens,
+            cost_eur=float(cost_eur + riscrittura.cost_eur),
             rewritten_query=search_query,
         )
 
